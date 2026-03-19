@@ -8,23 +8,24 @@ function vk_test_connection() {
     }
 }
 
-function vk_init() {
-    // 1. Проверяем, есть ли мост и готова ли функция связи с GameMaker
-    if (window.vkBridge && typeof GML_Script_Call !== 'undefined') {
+var vk_init_status = 0; // 0 - ожидание, 1 - успех, -1 - ошибка
+
+function vk_init_start() {
+    if (window.vkBridge) {
         window.vkBridge.send('VKWebAppInit')
-            .then((data) => {
-                console.log("VK Bridge: Init Success");
-                GML_Script_Call("gmcallback_vk_on_init", "success");
+            .then(() => {
+                vk_init_status = 1;
+                console.log("JS: VK Init Success");
             })
-            .catch((error) => {
-                console.log("VK Bridge: Init Error", error);
-                GML_Script_Call("gmcallback_vk_on_init", "error");
+            .catch(() => {
+                vk_init_status = -1;
+                console.log("JS: VK Init Failed");
             });
-    } else {
-        // 2. Если что-то из этого еще не готово, ждем чуть дольше
-        console.log("Waiting for VK Bridge or GameMaker Engine...");
-        setTimeout(vk_init, 200); 
     }
+}
+
+function vk_get_init_status() {
+    return vk_init_status;
 }
 
 function vk_show_ads() {
