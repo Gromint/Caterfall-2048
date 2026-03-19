@@ -1,75 +1,50 @@
-function vk_test_connection() {
-    if (window.vkBridge) {
-        console.log("JS: VK Bridge detected!");
-        return 1;
-    } else {
-        console.log("JS: VK Bridge NOT found!");
-        return 0;
+var VK_GMS = {
+    _request_id: 0,
+    newRequest: function() { return ++this._request_id; },
+    
+    // Отправка объекта, который GM примет в Async Social
+    send: function(req_id, status, data = null) {
+        var response = {
+            "type": "VKBridge",
+            "request_id": req_id,
+            "status": status,
+            "data": data ? String(data) : ""
+        };
+        if (typeof GML_SendAsync === 'function') {
+            GML_SendAsync(response);
+        }
     }
-}
+};
 
-var vk_init_status = 0; // 0 - ожидание, 1 - успех, -1 - ошибка
-
-function vk_init_start() {
+function vk_init() {
+    var req_id = VK_GMS.newRequest();
     if (window.vkBridge) {
         window.vkBridge.send('VKWebAppInit')
-            .then(() => {
-                vk_init_status = 1;
-                console.log("JS: VK Init Success");
-            })
-            .catch(() => {
-                vk_init_status = -1;
-                console.log("JS: VK Init Failed");
-            });
+            .then(() => VK_GMS.send(req_id, "success"))
+            .catch(() => VK_GMS.send(req_id, "error"));
     }
-}
-
-function vk_get_init_status() {
-    return vk_init_status;
-}
-
-function vk_show_ads() {
-    if (window.vkBridge) {
-        window.vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
-            .then((data) => { console.log('Реклама показана'); })
-            .catch((error) => { console.log('Ошибка рекламы', error); });
-    }
-}
-
-function vk_save_data(key, value) {
-    if (window.vkBridge) {
-        window.vkBridge.send('VKWebAppStorageSet', {
-            key: key,
-            value: String(value) 
-        })
-        .then((data) => {
-            console.log("Данные сохранены:", key);
-        })
-        .catch((error) => {
-            console.error("Ошибка сохранения:", error);
-        });
-    }
+    return req_id;
 }
 
 function vk_get_data(key) {
+    var req_id = VK_GMS.newRequest();
     if (window.vkBridge) {
-        window.vkBridge.send('VKWebAppStorageGet', {
-            keys: [key]
-        })
-        .then((data) => {
-            var value = "";
-            if (data.keys && data.keys[0]) {
-                value = data.keys[0].value;
-            }
-            GML_Script_Call("gmcallback_vk_on_data", key, value);
-        })
-        .catch((error) => {
-            console.error("Ошибка загрузки:", error);
-            // Важно вернуть пустую строку или флаг ошибки в GML, чтобы игра не зависла
-            GML_Script_Call("gmcallback_vk_on_data", key, "error");
-        });
-    } else {
-        // Если вызвали загрузку, а моста нет — сразу отвечаем ошибкой в GML
-        GML_Script_Call("gmcallback_vk_on_data", key, "error");
+        window.vkBridge.send('VKWebAppStorageGet', { keys: [key] })
+            .then(res => {
+                var val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
+                VK_GMS.send(req_id, "success", val);
+            })
+            .catch(() => VK_GMS.send(req_id, "error"));
     }
+    return req_id;
+}
+
+function vk_save_data(key, value) {
+    var req_id = VK_GMS.newRequest();
+    if (window.vkBridge) {
+        window.vkBridge.send('VKWebAppStorageSet', { key: key, value: String(value) })
+            .then(() => VK_GMS.send(req_id, "success"))
+            .catch(() => VK_GMS.send(req_id, "error"));
+    }
+    return req_id;
 }

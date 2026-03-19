@@ -148,6 +148,18 @@
 
         <script>window.onload = GameMaker_Init;</script>
 
+        <script>
+            // Как только пользователь кликнет в любом месте страницы:
+            document.addEventListener('mousedown', function() {
+                window.focus(); // Переводим фокус на окно
+                var canvas = document.getElementById('canvas');
+                if (canvas) {
+                    canvas.focus(); // Переводим фокус конкретно на игру
+                }
+                console.log("Focus forced by click");
+            }, {once: true}); // {once: true} значит, что код сработает только один раз
+        </script>
+
         <!-- Builtin injector for injecting google analytics code -->
         
 
