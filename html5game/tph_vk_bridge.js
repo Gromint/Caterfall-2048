@@ -1,17 +1,18 @@
 function vk_init() {
-    // Проверяем, существует ли объект vkBridge в глобальном окне браузера
-    if (typeof vkBridge !== 'undefined') {
-        vkBridge.send('VKWebAppInit')
+    // Проверяем существование vkBridge через объект window
+    if (window.vkBridge) {
+        window.vkBridge.send('VKWebAppInit')
             .then((data) => {
-                // Если всё ок, сообщаем об этом в GML
+                console.log("VK Bridge: Init Success");
                 GML_Script_Call("gmcallback_vk_on_init", "success");
             })
             .catch((error) => {
+                console.log("VK Bridge: Init Error", error);
                 GML_Script_Call("gmcallback_vk_on_init", "error");
             });
     } else {
-        // Если библиотеки еще нет, пишем в консоль и пробуем снова чуть позже
-        console.log("Waiting for VK Bridge library...");
+        // Если еще не загрузился, ждем 100мс
+        console.log("VK Bridge: Library not found, retrying...");
         setTimeout(vk_init, 100);
     }
 }
