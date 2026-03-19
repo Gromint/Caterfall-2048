@@ -1,5 +1,6 @@
 function vk_init() {
-    if (window.vkBridge) {
+    // 1. Проверяем, есть ли мост и готова ли функция связи с GameMaker
+    if (window.vkBridge && typeof GML_Script_Call !== 'undefined') {
         window.vkBridge.send('VKWebAppInit')
             .then((data) => {
                 console.log("VK Bridge: Init Success");
@@ -10,8 +11,9 @@ function vk_init() {
                 GML_Script_Call("gmcallback_vk_on_init", "error");
             });
     } else {
-        console.log("VK Bridge: Library not found, retrying...");
-        setTimeout(vk_init, 100);
+        // 2. Если что-то из этого еще не готово, ждем чуть дольше
+        console.log("Waiting for VK Bridge or GameMaker Engine...");
+        setTimeout(vk_init, 200); 
     }
 }
 
