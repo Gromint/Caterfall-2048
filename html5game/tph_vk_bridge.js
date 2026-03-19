@@ -1,3 +1,13 @@
+function vk_test_connection() {
+    if (window.vkBridge) {
+        console.log("JS: VK Bridge detected!");
+        return 1;
+    } else {
+        console.log("JS: VK Bridge NOT found!");
+        return 0;
+    }
+}
+
 function vk_init() {
     // 1. Проверяем, есть ли мост и готова ли функция связи с GameMaker
     if (window.vkBridge && typeof GML_Script_Call !== 'undefined') {
