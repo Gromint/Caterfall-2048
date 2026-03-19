@@ -107,6 +107,13 @@
 
         <!-- Builtin injector for injecting flurry analytics code -->
 
+<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
+<script>
+  // Sends event to client
+  vkBridge.send('VKWebAppInit');
+</script>
+
     </head>
 
     <!-- Custom PostHead code is injected here -->
