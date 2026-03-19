@@ -17,6 +17,7 @@ var VK_GMS = {
 };
 
 function vk_init() {
+	console.log("JS: vk_init called");
     var req_id = VK_GMS.newRequest();
     if (window.vkBridge) {
         window.vkBridge.send('VKWebAppInit')
