@@ -1,12 +1,19 @@
 function vk_init() {
-    vkBridge.send('VKWebAppInit')
-        .then((data) => {
-            // Сообщаем GML, что инициализация прошла успешно
-            GML_Script_Call("gmcallback_vk_on_init", "success");
-        })
-        .catch((error) => {
-            GML_Script_Call("gmcallback_vk_on_init", "error");
-        });
+    // Проверяем, существует ли объект vkBridge в глобальном окне браузера
+    if (typeof vkBridge !== 'undefined') {
+        vkBridge.send('VKWebAppInit')
+            .then((data) => {
+                // Если всё ок, сообщаем об этом в GML
+                GML_Script_Call("gmcallback_vk_on_init", "success");
+            })
+            .catch((error) => {
+                GML_Script_Call("gmcallback_vk_on_init", "error");
+            });
+    } else {
+        // Если библиотеки еще нет, пишем в консоль и пробуем снова чуть позже
+        console.log("Waiting for VK Bridge library...");
+        setTimeout(vk_init, 100);
+    }
 }
 
 function vk_show_ads() {
