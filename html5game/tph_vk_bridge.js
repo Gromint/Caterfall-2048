@@ -40,10 +40,11 @@ function vk_init() {
             })
             .catch(() => VK_GMS.send(req_id, "error"));
     } else {
-        // Если скрипт еще не подгрузился, пробуем снова через 200мс
-        setTimeout(vk_init, 200);
+        console.error("JS: VK Bridge NOT FOUND during init!");
+        // Вместо рекурсии сразу шлем ошибку, чтобы GML не ждал вечно
+        setTimeout(() => VK_GMS.send(req_id, "error"), 100); 
     }
-    return req_id;
+    return req_id; // Всегда возвращаем ID
 }
 
 function vk_get_init_status() {
