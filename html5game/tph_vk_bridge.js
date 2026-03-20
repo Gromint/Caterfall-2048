@@ -21,16 +21,10 @@ var VK_GMS = {
             "status": String(status),
             "data": this.safeString(data)
         };
-
         var jsonResponse = JSON.stringify(response);
         console.log("JS: Dispatching via gmcallback...", response);
-
-        if (typeof window.gmcallback_vk_receiver === 'function') {
-            window.gmcallback_vk_receiver(jsonResponse);
-            console.log("JS: Successfully called gmcallback!");
-        } else {
-            console.error("JS: gmcallback_vk_receiver NOT FOUND! Make sure the script is named correctly in GM.");
-        }
+    
+        window.gmcallback_vk_receiver(jsonResponse);  // прямой вызов без проверки
     }
 };
 
