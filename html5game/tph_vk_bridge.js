@@ -56,14 +56,18 @@ function vk_get_init_status() {
 
 function vk_get_data(key) {
     var req_id = VK_GMS.newRequest();
-    if (!VK_GMS._is_ready) return -1;
-
+    console.log("JS: vk_get_data called for key:", key, "Request ID:", req_id);
+    
     window.vkBridge.send('VKWebAppStorageGet', { keys: [key] })
         .then(res => {
+            console.log("JS: VK responded with data");
             var val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
             VK_GMS.send(req_id, "success", val);
         })
-        .catch(() => VK_GMS.send(req_id, "error"));
+        .catch(err => {
+            console.error("JS: VK Get Data Error", err);
+            VK_GMS.send(req_id, "error", JSON.stringify(err));
+        });
     return req_id;
 }
 
