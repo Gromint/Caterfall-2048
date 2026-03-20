@@ -25,15 +25,21 @@ var VK_GMS = {
 
         console.log("JS: Sending to GML...", response);
 
-        // Проверка всех вариантов функции отправки в разных версиях GM
-        if (typeof g_pBuiltIn_GML_SendAsync === 'function') {
-            g_pBuiltIn_GML_SendAsync(response);
-            console.log("JS: Sent via g_pBuiltIn_GML_SendAsync");
-        } else if (typeof GML_SendAsync === 'function') {
-            GML_SendAsync(response);
-            console.log("JS: Sent via GML_SendAsync");
+        // Пытаемся найти функцию отправки везде, где она может быть
+        var sendFunc = null;
+        
+        if (typeof g_pBuiltIn_GML_SendAsync === 'function') sendFunc = g_pBuiltIn_GML_SendAsync;
+        else if (typeof GML_SendAsync === 'function') sendFunc = GML_SendAsync;
+        else if (window.g_pBuiltIn_GML_SendAsync) sendFunc = window.g_pBuiltIn_GML_SendAsync;
+        else if (window.GML_SendAsync) sendFunc = window.GML_SendAsync;
+        
+        if (sendFunc) {
+            sendFunc(response);
+            console.log("JS: Successfully sent via " + (sendFunc.name || "GML function"));
         } else {
-            console.error("JS: FATAL - GML Send functions NOT FOUND!");
+            // ФИНАЛЬНЫЙ ШАНС: Если функции не найдены, кидаем через событие (некоторые расширения так работают)
+            console.error("JS: GML functions not found, trying CustomEvent fallback...");
+            window.dispatchEvent(new CustomEvent('GM_AsyncEvent', { detail: response }));
         }
     }
 };
