@@ -21,13 +21,26 @@ var VK_GMS = {
     // Отправка данных в Async Social Event
     send: function(req_id, status, data = null) {
         var response = {
-            "type": this._type,
-            "request_id": req_id,
-            "status": status,
+            "type": String(this._type), // Явно приводим к строке
+            "request_id": Number(req_id),
+            "status": String(status),
             "data": this.safeString(data)
         };
-        if (typeof GML_SendAsync === 'function') {
+
+        console.log("JS: Attempting to send to GML:", response);
+
+        // 1. Пытаемся вызвать встроенную функцию (новые версии GM)
+        if (typeof g_pBuiltIn_GML_SendAsync === 'function') {
+            g_pBuiltIn_GML_SendAsync(response);
+            console.log("JS: Used g_pBuiltIn_GML_SendAsync");
+        } 
+        // 2. Пытаемся вызвать стандартную функцию
+        else if (typeof GML_SendAsync === 'function') {
             GML_SendAsync(response);
+            console.log("JS: Used GML_SendAsync");
+        } 
+        else {
+            console.error("JS: GML Send functions NOT FOUND!");
         }
     }
 };
