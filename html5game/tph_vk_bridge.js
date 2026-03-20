@@ -3,12 +3,8 @@ var VK_GMS = {
     _request_id: 0,
     _is_ready: false,
 
-    // Генерация ID запроса
-    newRequest: function() {
-        return ++this._request_id;
-    },
+    newRequest: function() { return ++this._request_id; },
 
-    // Безопасное приведение данных к строке для GML
     safeString: function(e) {
         try {
             if (typeof e === "number") return String(e);
@@ -18,29 +14,26 @@ var VK_GMS = {
         } catch (err) { return ""; }
     },
 
-    // Отправка данных в Async Social Event
+    // УНИВЕРСАЛЬНАЯ ОТПРАВКА
     send: function(req_id, status, data = null) {
         var response = {
-            "type": String(this._type), // Явно приводим к строке
+            "type": String(this._type),
             "request_id": Number(req_id),
             "status": String(status),
             "data": this.safeString(data)
         };
 
-        console.log("JS: Attempting to send to GML:", response);
+        console.log("JS: Sending to GML...", response);
 
-        // 1. Пытаемся вызвать встроенную функцию (новые версии GM)
+        // Проверка всех вариантов функции отправки в разных версиях GM
         if (typeof g_pBuiltIn_GML_SendAsync === 'function') {
             g_pBuiltIn_GML_SendAsync(response);
-            console.log("JS: Used g_pBuiltIn_GML_SendAsync");
-        } 
-        // 2. Пытаемся вызвать стандартную функцию
-        else if (typeof GML_SendAsync === 'function') {
+            console.log("JS: Sent via g_pBuiltIn_GML_SendAsync");
+        } else if (typeof GML_SendAsync === 'function') {
             GML_SendAsync(response);
-            console.log("JS: Used GML_SendAsync");
-        } 
-        else {
-            console.error("JS: GML Send functions NOT FOUND!");
+            console.log("JS: Sent via GML_SendAsync");
+        } else {
+            console.error("JS: FATAL - GML Send functions NOT FOUND!");
         }
     }
 };
