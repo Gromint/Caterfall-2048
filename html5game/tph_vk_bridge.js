@@ -16,34 +16,20 @@ var VK_GMS = {
 
     send: function(req_id, status, data = null) {
         var response = {
-            "type": String(this._type),
+            "type": "VKBridge",
             "request_id": Number(req_id),
             "status": String(status),
             "data": this.safeString(data)
         };
 
-        console.log("JS: Attempting to send to GML...", response);
+        var jsonResponse = JSON.stringify(response);
+        console.log("JS: Dispatching via gmcallback...", response);
 
-        // 1. Пытаемся найти функцию в глобальном объекте
-        var gmlSend = window["GML_SendAsync"] || 
-                      window["g_pBuiltIn_GML_SendAsync"] || 
-                      (window.parent ? window.parent["GML_SendAsync"] : null);
-
-        // 2. Если не нашли, ищем по всему window (иногда GM меняет префиксы)
-        if (!gmlSend) {
-            for (var prop in window) {
-                if (prop.indexOf("GML_SendAsync") !== -1 && typeof window[prop] === "function") {
-                    gmlSend = window[prop];
-                    break;
-                }
-            }
-        }
-
-        if (typeof gmlSend === 'function') {
-            gmlSend(response);
-            console.log("JS: DATA SENT TO GML SUCCESSFULLY!");
+        if (typeof window.gmcallback_vk_receiver === 'function') {
+            window.gmcallback_vk_receiver(jsonResponse);
+            console.log("JS: Successfully called gmcallback!");
         } else {
-            console.error("JS: CRITICAL - GML_SendAsync NOT FOUND. GameMaker is isolated.");
+            console.error("JS: gmcallback_vk_receiver NOT FOUND! Make sure the script is named correctly in GM.");
         }
     }
 };
