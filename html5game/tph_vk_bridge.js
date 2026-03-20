@@ -14,7 +14,6 @@ var VK_GMS = {
         } catch (err) { return ""; }
     },
 
-    // УНИВЕРСАЛЬНАЯ ОТПРАВКА
     send: function(req_id, status, data = null) {
         var response = {
             "type": String(this._type),
@@ -25,21 +24,20 @@ var VK_GMS = {
 
         console.log("JS: Sending to GML...", response);
 
-        // Пытаемся найти функцию отправки везде, где она может быть
-        var sendFunc = null;
-        
-        if (typeof g_pBuiltIn_GML_SendAsync === 'function') sendFunc = g_pBuiltIn_GML_SendAsync;
-        else if (typeof GML_SendAsync === 'function') sendFunc = GML_SendAsync;
-        else if (window.g_pBuiltIn_GML_SendAsync) sendFunc = window.g_pBuiltIn_GML_SendAsync;
-        else if (window.GML_SendAsync) sendFunc = window.GML_SendAsync;
-        
-        if (sendFunc) {
-            sendFunc(response);
-            console.log("JS: Successfully sent via " + (sendFunc.name || "GML function"));
+        // В GameMaker HTML5 функции для расширений лежат здесь:
+        var gmlSend = window["GML_SendAsync"] || window["g_pBuiltIn_GML_SendAsync"];
+
+        if (typeof gmlSend === 'function') {
+            gmlSend(response);
+            console.log("JS: Success! Sent via " + (window["GML_SendAsync"] ? "GML_SendAsync" : "g_pBuiltIn_GML_SendAsync"));
         } else {
-            // ФИНАЛЬНЫЙ ШАНС: Если функции не найдены, кидаем через событие (некоторые расширения так работают)
-            console.error("JS: GML functions not found, trying CustomEvent fallback...");
-            window.dispatchEvent(new CustomEvent('GM_AsyncEvent', { detail: response }));
+            // Если функций нет, попробуем через старый добрый метод поиска по объекту
+            // но с явным указанием контекста window
+            if (window.GML_SendAsync) {
+                window.GML_SendAsync(response);
+            } else {
+                console.error("JS: GML functions NOT FOUND in window scope!");
+            }
         }
     }
 };
