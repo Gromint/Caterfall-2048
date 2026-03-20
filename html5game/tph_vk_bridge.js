@@ -34,15 +34,6 @@ var VK_GMS = {
     }
 };
 
-function gmcallback_vk_receiver(_json) {
-    // Вызываем внутренний метод GM, который мы уже пытались найти
-    var gmlSend = window["GML_SendAsync"] || window["g_pBuiltIn_GML_SendAsync"];
-    if (gmlSend) {
-        var data = JSON.parse(_json);
-        gmlSend(data);
-    }
-}
-
 // --- ОСНОВНЫЕ ФУНКЦИИ ---
 
 function vk_init() {
