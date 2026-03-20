@@ -1,14 +1,12 @@
 var VK_GMS = {
-    _type: "VKBridge",
     _request_id: 0,
     _is_ready: false,
 
     newRequest: function() { return ++this._request_id; },
 
     safeString: function(e) {
+        if (e === null || e === undefined) return "null";
         try {
-            if (typeof e === "number") return String(e);
-            if (typeof e === "boolean") return e ? "1" : "0";
             if (typeof e === "object") return JSON.stringify(e);
             return String(e);
         } catch (err) { return ""; }
@@ -21,10 +19,15 @@ var VK_GMS = {
             "status": String(status),
             "data": this.safeString(data)
         };
-        var jsonResponse = JSON.stringify(response);
+        
         console.log("JS: Dispatching via gmcallback...", response);
-    
-        window.gmcallback_vk_receiver(jsonResponse);  // прямой вызов без проверки
+        
+        // Вызываем GML скрипт. В HTML5 GM создаёт эту функцию в window автоматически
+        if (typeof window.gmcallback_vk_receiver === 'function') {
+            window.gmcallback_vk_receiver(JSON.stringify(response));
+        } else {
+            console.warn("JS: gmcallback_vk_receiver not ready yet");
+        }
     }
 };
 
@@ -32,19 +35,24 @@ var VK_GMS = {
 
 function vk_init() {
     var req_id = VK_GMS.newRequest();
+    
+    // Проверяем наличие vkBridge без рекурсии внутри функции
     if (window.vkBridge) {
         window.vkBridge.send('VKWebAppInit')
             .then(() => {
                 VK_GMS._is_ready = true;
                 VK_GMS.send(req_id, "success");
             })
-            .catch(() => VK_GMS.send(req_id, "error"));
+            .catch((err) => {
+                console.error("JS: VK Init Error", err);
+                VK_GMS.send(req_id, "error");
+            });
     } else {
-        console.error("JS: VK Bridge NOT FOUND during init!");
-        // Вместо рекурсии сразу шлем ошибку, чтобы GML не ждал вечно
-        setTimeout(() => VK_GMS.send(req_id, "error"), 100); 
+        console.error("JS: vkBridge not found in window!");
+        // Шлём ошибку через мгновение, чтобы GML успел получить ID
+        setTimeout(function() { VK_GMS.send(req_id, "error"); }, 50);
     }
-    return req_id; // Всегда возвращаем ID
+    return req_id; 
 }
 
 function vk_get_init_status() {
@@ -53,18 +61,14 @@ function vk_get_init_status() {
 
 function vk_get_data(key) {
     var req_id = VK_GMS.newRequest();
-    console.log("JS: vk_get_data called for key:", key, "Request ID:", req_id);
-    
+    if (!window.vkBridge) return -1;
+
     window.vkBridge.send('VKWebAppStorageGet', { keys: [key] })
         .then(res => {
-            console.log("JS: VK responded with data");
             var val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
             VK_GMS.send(req_id, "success", val);
         })
-        .catch(err => {
-            console.error("JS: VK Get Data Error", err);
-            VK_GMS.send(req_id, "error", JSON.stringify(err));
-        });
+        .catch(err => VK_GMS.send(req_id, "error", err));
     return req_id;
 }
 
