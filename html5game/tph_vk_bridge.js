@@ -29,6 +29,14 @@ var VK_GMS = {
     }
 };
 
+function tryFlushCallbacks() {
+    if (typeof window.gmcallback_vk_receiver !== 'function') return;
+    while (pendingCallbacks.length > 0) {
+        var json = pendingCallbacks.shift();
+        window.gmcallback_vk_receiver(json);
+    }
+}
+
 function vk_init() {
     var req_id = VK_GMS.newRequest();
     
