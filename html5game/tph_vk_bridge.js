@@ -22,22 +22,28 @@ var VK_GMS = {
             "data": this.safeString(data)
         };
 
-        console.log("JS: Sending to GML...", response);
+        console.log("JS: Attempting to send to GML...", response);
 
-        // В GameMaker HTML5 функции для расширений лежат здесь:
-        var gmlSend = window["GML_SendAsync"] || window["g_pBuiltIn_GML_SendAsync"];
+        // 1. Пытаемся найти функцию в глобальном объекте
+        var gmlSend = window["GML_SendAsync"] || 
+                      window["g_pBuiltIn_GML_SendAsync"] || 
+                      (window.parent ? window.parent["GML_SendAsync"] : null);
+
+        // 2. Если не нашли, ищем по всему window (иногда GM меняет префиксы)
+        if (!gmlSend) {
+            for (var prop in window) {
+                if (prop.indexOf("GML_SendAsync") !== -1 && typeof window[prop] === "function") {
+                    gmlSend = window[prop];
+                    break;
+                }
+            }
+        }
 
         if (typeof gmlSend === 'function') {
             gmlSend(response);
-            console.log("JS: Success! Sent via " + (window["GML_SendAsync"] ? "GML_SendAsync" : "g_pBuiltIn_GML_SendAsync"));
+            console.log("JS: DATA SENT TO GML SUCCESSFULLY!");
         } else {
-            // Если функций нет, попробуем через старый добрый метод поиска по объекту
-            // но с явным указанием контекста window
-            if (window.GML_SendAsync) {
-                window.GML_SendAsync(response);
-            } else {
-                console.error("JS: GML functions NOT FOUND in window scope!");
-            }
+            console.error("JS: CRITICAL - GML_SendAsync NOT FOUND. GameMaker is isolated.");
         }
     }
 };
