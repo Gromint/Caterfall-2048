@@ -1,8 +1,9 @@
-// Поиск внутреннего API GameMaker для отправки событий в GML
+console.log("VK_BRIDGE: Script loaded!"); // Должно появиться сразу при загрузке страницы
+
 var GMS_API = (function () {
-    if (typeof g_pBuiltInCallbacks !== 'undefined') return g_pBuiltInCallbacks;
-    if (window.g_pBuiltInCallbacks) return window.g_pBuiltInCallbacks;
-    return null;
+    let api = (typeof g_pBuiltInCallbacks !== 'undefined') ? g_pBuiltInCallbacks : (window.g_pBuiltInCallbacks || null);
+    console.log("VK_BRIDGE: GMS_API status:", api ? "FOUND" : "NOT FOUND");
+    return api;
 })();
 
 var VK_GMS = {
