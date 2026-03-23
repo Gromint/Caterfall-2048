@@ -136,8 +136,12 @@ function vk_show_rewarded_ads() {
 // ==============================
 // POLL FUNCTION (ВАЖНО)
 // ==============================
-
 function vk_poll_event() {
-    if (window.VK_QUEUE.length === 0) return null;
-    return window.VK_QUEUE.shift();
+    if (pendingCallbacks.length > 0) {
+        var evt = pendingCallbacks.shift();
+        console.log("JS: Polling event...", evt);
+        // ОБЯЗАТЕЛЬНО возвращаем JSON-строку
+        return JSON.stringify(evt); 
+    }
+    return "";
 }
