@@ -2,53 +2,76 @@ var VK_GMS = {
     _request_id: 0,
     _is_ready: false,
 
-    newRequest: function() { return ++this._request_id; },
-
-    safeString: function(e) {
-        if (e === null || e === undefined) return "null";
-        try {
-            if (typeof e === "object") return JSON.stringify(e);
-            return String(e);
-        } catch (err) { return ""; }
+    newRequest: function () {
+        this._request_id += 1;
+        return this._request_id;
     },
 
-    send: function(req_id, status, data = null) {
+    send: function (req_id, status, data = null) {
         var response = {
-            "type": "VKBridge",
-            "request_id": Number(req_id),
-            "status": String(status),
-            "data": this.safeString(data)
+            type: "VKBridge",
+            request_id: req_id,
+            status: status,
+            data: data // ❗ НИКАКОЙ сериализации тут
         };
-    
-        var jsonStr = JSON.stringify(response);
-        console.log("JS: Sending to GML:", response);
 
-        // Прямой вызов GML-скрипта
-        if (typeof window.gmcallback_vk_receiver === 'function') {
-            window.gmcallback_vk_receiver(jsonStr);
+        console.log("JS → GML:", response);
+
+        if (typeof window.gmcallback_vk_receiver === "function") {
+            window.gmcallback_vk_receiver(JSON.stringify(response));
         } else {
-            console.warn("JS: GML receiver not ready!");
+            console.error("JS: gmcallback_vk_receiver not found");
         }
     }
 };
 
+// --- ОБЯЗАТЕЛЬНО: проброс в window ---
+window.gmcallback_vk_receiver = function (_json) {
+    var gmlSend =
+        window["gml_Script_gmcallback_vk_receiver"] || // новый GM
+        window["gml_gmcallback_vk_receiver"] ||        // иногда так
+        window["GML_SendAsync"] ||
+        window["g_pBuiltIn_GML_SendAsync"];
+
+    if (!gmlSend) {
+        console.error("JS: GML async handler not found!");
+        return;
+    }
+
+    try {
+        var data = JSON.parse(_json);
+        gmlSend(data);
+    } catch (e) {
+        console.error("JS: JSON parse error", e);
+    }
+};
+
+
+// ==============================
+// INIT
+// ==============================
 function vk_init() {
     var req_id = VK_GMS.newRequest();
-    
-    if (window.vkBridge) {
-        window.vkBridge.send('VKWebAppInit')
-            .then(() => {
-                VK_GMS._is_ready = true;
-                VK_GMS.send(req_id, "success");
-            })
-            .catch(() => {
-                VK_GMS.send(req_id, "error");
-            });
-    } else {
-        console.error("JS: vkBridge not found!");
-        // Шлем ошибку один раз, без повторных попыток vk_init
-        setTimeout(function() { VK_GMS.send(req_id, "error"); }, 50);
+
+    if (!window.vkBridge) {
+        console.error("JS: vkBridge not found");
+
+        setTimeout(() => {
+            VK_GMS.send(req_id, "error", "vkBridge not loaded");
+        }, 50);
+
+        return req_id;
     }
+
+    window.vkBridge.send("VKWebAppInit")
+        .then(() => {
+            VK_GMS._is_ready = true;
+            VK_GMS.send(req_id, "success");
+        })
+        .catch(err => {
+            VK_GMS.send(req_id, "error", err);
+        });
+
     return req_id;
 }
 
@@ -56,66 +79,75 @@ function vk_get_init_status() {
     return VK_GMS._is_ready ? 1 : 0;
 }
 
+
+// ==============================
+// STORAGE
+// ==============================
 function vk_get_data(key) {
     var req_id = VK_GMS.newRequest();
+
     if (!VK_GMS._is_ready) return -1;
 
-    window.vkBridge.send('VKWebAppStorageGet', { keys: [key] })
+    window.vkBridge.send("VKWebAppStorageGet", { keys: [key] })
         .then(res => {
-            var val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
-            VK_GMS.send(req_id, "success", val);
+            let value = null;
+
+            if (res.keys && res.keys.length > 0) {
+                value = res.keys[0].value; // может быть string или null
+            }
+
+            VK_GMS.send(req_id, "success", value);
         })
-        .catch(err => VK_GMS.send(req_id, "error", err));
+        .catch(err => {
+            VK_GMS.send(req_id, "error", err);
+        });
+
     return req_id;
 }
 
 function vk_save_data(key, value) {
     var req_id = VK_GMS.newRequest();
+
     if (!VK_GMS._is_ready) return -1;
 
-    window.vkBridge.send('VKWebAppStorageSet', { key: key, value: String(value) })
-        .then(() => VK_GMS.send(req_id, "success"))
-        .catch(() => VK_GMS.send(req_id, "error"));
+    window.vkBridge.send("VKWebAppStorageSet", {
+        key: key,
+        value: String(value)
+    })
+    .then(() => VK_GMS.send(req_id, "success"))
+    .catch(err => VK_GMS.send(req_id, "error", err));
+
     return req_id;
 }
 
+
+// ==============================
+// ADS
+// ==============================
 function vk_show_ads() {
     var req_id = VK_GMS.newRequest();
+
     if (!VK_GMS._is_ready) return -1;
 
-    window.vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
-        .then(() => VK_GMS.send(req_id, "success"))
-        .catch(() => VK_GMS.send(req_id, "error"));
-        
+    window.vkBridge.send("VKWebAppShowNativeAds", {
+        ad_format: "interstitial"
+    })
+    .then(res => VK_GMS.send(req_id, "success", res))
+    .catch(err => VK_GMS.send(req_id, "error", err));
+
     return req_id;
 }
 
 function vk_show_rewarded_ads() {
     var req_id = VK_GMS.newRequest();
+
     if (!VK_GMS._is_ready) return -1;
 
-    window.vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' })
-        .then(() => VK_GMS.send(req_id, "success"))
-        .catch(() => VK_GMS.send(req_id, "error"));
-        
+    window.vkBridge.send("VKWebAppShowNativeAds", {
+        ad_format: "reward"
+    })
+    .then(res => VK_GMS.send(req_id, "success", res))
+    .catch(err => VK_GMS.send(req_id, "error", err));
+
     return req_id;
-}
-
-function vk_send_test_to_gml() {
-    // Создаем простой объект
-    var data = {
-        message: "Hello from JS!",
-        value: 42
-    };
-
-    // Превращаем в строку JSON
-    var jsonString = JSON.stringify(data);
-
-    // Вызываем GML-скрипт напрямую
-    // Важно: в window должна быть функция с именем gmcallback_ + имя вашего скрипта
-    if (typeof window.gmcallback_vk_receiver === 'function') {
-        window.gmcallback_vk_receiver(jsonString);
-    } else {
-        console.error("GML Script 'gmcallback_vk_receiver' not found!");
-    }
 }
