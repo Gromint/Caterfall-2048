@@ -12,7 +12,7 @@ var VK_GMS = {
             type: "VKBridge",
             request_id: req_id,
             status: status,
-            data: data // ❗ НИКАКОЙ сериализации тут
+            data: data
         };
 
         console.log("JS → GML:", response);
@@ -27,39 +27,16 @@ var VK_GMS = {
 
 // --- проброс в window ---
 window.gmcallback_vk_receiver = function (_json) {
-    let data;
+    var fn =
+        window["gml_Script_vk_bridge_callback"] ||
+        window["gml_vk_bridge_callback"];
 
-    try {
-        data = JSON.parse(_json);
-    } catch (e) {
-        console.error("JSON parse error", e);
+    if (!fn) {
+        console.error("JS: vk_bridge_callback not found!");
         return;
     }
 
-    function trySend() {
-        if (window.GML_SendAsync) {
-            window.GML_SendAsync(data);
-            return true;
-        }
-        return false;
-    }
-
-    // сразу пробуем
-    if (trySend()) return;
-
-    // если GM ещё не готов — ждём
-    let tries = 0;
-    let interval = setInterval(() => {
-        if (trySend()) {
-            clearInterval(interval);
-        }
-
-        tries++;
-        if (tries > 50) {
-            clearInterval(interval);
-            console.error("GML_SendAsync not found!");
-        }
-    }, 100);
+    fn(_json);
 };
 
 
