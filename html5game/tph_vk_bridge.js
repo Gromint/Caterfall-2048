@@ -25,25 +25,41 @@ var VK_GMS = {
     }
 };
 
-// --- ОБЯЗАТЕЛЬНО: проброс в window ---
+// --- проброс в window ---
 window.gmcallback_vk_receiver = function (_json) {
-    var gmlSend =
-        window["gml_Script_gmcallback_vk_receiver"] || // новый GM
-        window["gml_gmcallback_vk_receiver"] ||        // иногда так
-        window["GML_SendAsync"] ||
-        window["g_pBuiltIn_GML_SendAsync"];
+    let data;
 
-    if (!gmlSend) {
-        console.error("JS: GML async handler not found!");
+    try {
+        data = JSON.parse(_json);
+    } catch (e) {
+        console.error("JSON parse error", e);
         return;
     }
 
-    try {
-        var data = JSON.parse(_json);
-        gmlSend(data);
-    } catch (e) {
-        console.error("JS: JSON parse error", e);
+    function trySend() {
+        if (window.GML_SendAsync) {
+            window.GML_SendAsync(data);
+            return true;
+        }
+        return false;
     }
+
+    // сразу пробуем
+    if (trySend()) return;
+
+    // если GM ещё не готов — ждём
+    let tries = 0;
+    let interval = setInterval(() => {
+        if (trySend()) {
+            clearInterval(interval);
+        }
+
+        tries++;
+        if (tries > 50) {
+            clearInterval(interval);
+            console.error("GML_SendAsync not found!");
+        }
+    }, 100);
 };
 
 
