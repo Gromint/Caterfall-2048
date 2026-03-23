@@ -1,147 +1,100 @@
 // ==============================
-// GLOBAL QUEUE
+// CORE: Связь с GameMaker
 // ==============================
-window.VK_QUEUE = [];
+var GMS_API = (function() {
+    if (typeof g_pBuiltInCallbacks !== 'undefined') return g_pBuiltInCallbacks;
+    if (window.g_pBuiltInCallbacks) return window.g_pBuiltInCallbacks;
+    return null;
+})();
 
-function vk_push_event(type, request_id, status, data = null) {
-    const evt = {
-        type: "VKBridge",
-        request_id: request_id,
-        status: status,
-        data: data
-    };
-
-    console.log("VK EVENT (queued):", evt);
-    window.VK_QUEUE.push(evt);
-}
-
-
-// ==============================
-// CORE
-// ==============================
 var VK_GMS = {
     _request_id: 0,
     _is_ready: false,
 
-    newRequest: function () {
-        this._request_id++;
-        return this._request_id;
+    newRequest: function() { return ++this._request_id; },
+
+    // Отправка события напрямую в Async Social Event
+    send: function(req_id, status, data = null) {
+        let map = {};
+        map["type"] = "VK_BRIDGE_EVENT"; 
+        map["request_id"] = Number(req_id);
+        map["status"] = String(status);
+        map["data"] = (typeof data === 'object') ? JSON.stringify(data) : String(data);
+
+        console.log("JS -> GMS:", map);
+
+        if (GMS_API && GMS_API.send_async_event_social) {
+            GMS_API.send_async_event_social(map);
+        } else if (window.GMS_SocialEvent) {
+            window.GMS_SocialEvent(JSON.stringify(map));
+        } else {
+            console.error("GMS API not found!");
+        }
     }
 };
-
 
 // ==============================
 // INIT
 // ==============================
 function js_vk_init() {
     let req_id = VK_GMS.newRequest();
-
     if (!window.vkBridge) {
-        vk_push_event("VKBridge", req_id, "error", "vkBridge not found");
+        VK_GMS.send(req_id, "error", "bridge_missing");
         return req_id;
     }
-
     window.vkBridge.send("VKWebAppInit")
-        .then(() => {
-            VK_GMS._is_ready = true;
-            vk_push_event("VKBridge", req_id, "success");
+        .then(() => { 
+            VK_GMS._is_ready = true; 
+            VK_GMS.send(req_id, "success"); 
         })
-        .catch(err => {
-            vk_push_event("VKBridge", req_id, "error", err);
-        });
-
+        .catch(err => { VK_GMS.send(req_id, "error", err); });
     return req_id;
 }
-
-function vk_get_init_status() {
-    return VK_GMS._is_ready ? 1 : 0;
-}
-
 
 // ==============================
 // STORAGE
 // ==============================
 function js_vk_get_data(key) {
     let req_id = VK_GMS.newRequest();
-
-    if (!VK_GMS._is_ready) {
-        vk_push_event("VKBridge", req_id, "error", "not ready");
-        return req_id;
-    }
-
     window.vkBridge.send("VKWebAppStorageGet", { keys: [key] })
         .then(res => {
-            let value = null;
-
-            if (res.keys && res.keys.length > 0) {
-                value = res.keys[0].value;
-            }
-
-            vk_push_event("VKBridge", req_id, "success", value);
+            let val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
+            VK_GMS.send(req_id, "success", val);
         })
-        .catch(err => {
-            vk_push_event("VKBridge", req_id, "error", err);
-        });
-
+        .catch(err => VK_GMS.send(req_id, "error", err));
     return req_id;
 }
 
 function js_vk_save_data(key, value) {
     let req_id = VK_GMS.newRequest();
-
-    if (!VK_GMS._is_ready) {
-        vk_push_event("VKBridge", req_id, "error", "not ready");
-        return req_id;
-    }
-
     window.vkBridge.send("VKWebAppStorageSet", {
         key: key,
         value: String(value)
     })
-    .then(() => vk_push_event("VKBridge", req_id, "success"))
-    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
-
+    .then(() => VK_GMS.send(req_id, "success"))
+    .catch(err => VK_GMS.send(req_id, "error", err));
     return req_id;
 }
-
 
 // ==============================
 // ADS
 // ==============================
 function js_vk_show_ads() {
     let req_id = VK_GMS.newRequest();
-
     window.vkBridge.send("VKWebAppShowNativeAds", {
         ad_format: "interstitial"
     })
-    .then(res => vk_push_event("VKBridge", req_id, "success", res))
-    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
-
+    .then(res => VK_GMS.send(req_id, "success", res))
+    .catch(err => VK_GMS.send(req_id, "error", err));
     return req_id;
 }
 
-function vk_show_rewarded_ads() {
+function js_vk_show_rewarded_ads() {
     let req_id = VK_GMS.newRequest();
-
     window.vkBridge.send("VKWebAppShowNativeAds", {
         ad_format: "reward"
     })
-    .then(res => vk_push_event("VKBridge", req_id, "success", res))
-    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
-
+    .then(res => VK_GMS.send(req_id, "success", res))
+    .catch(err => VK_GMS.send(req_id, "error", err));
     return req_id;
-}
-
-
-// ==============================
-// POLL FUNCTION (ВАЖНО)
-// ==============================
-function js_vk_poll_event() {
-    // Используем ПРАВИЛЬНОЕ имя массива: VK_QUEUE
-    if (window.VK_QUEUE && window.VK_QUEUE.length > 0) {
-        var evt = window.VK_QUEUE.shift(); // Берем первое событие и удаляем его из очереди
-        console.log("JS: Polling event...", evt);
-        return JSON.stringify(evt); // Возвращаем строку для GML
-    }
-    return "";
 }
