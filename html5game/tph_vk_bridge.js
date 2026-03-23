@@ -33,7 +33,7 @@ var VK_GMS = {
 // ==============================
 // INIT
 // ==============================
-function vk_init() {
+function js_vk_init() {
     let req_id = VK_GMS.newRequest();
 
     if (!window.vkBridge) {
@@ -61,7 +61,7 @@ function vk_get_init_status() {
 // ==============================
 // STORAGE
 // ==============================
-function vk_get_data(key) {
+function js_vk_get_data(key) {
     let req_id = VK_GMS.newRequest();
 
     if (!VK_GMS._is_ready) {
@@ -86,7 +86,7 @@ function vk_get_data(key) {
     return req_id;
 }
 
-function vk_save_data(key, value) {
+function js_vk_save_data(key, value) {
     let req_id = VK_GMS.newRequest();
 
     if (!VK_GMS._is_ready) {
@@ -108,7 +108,7 @@ function vk_save_data(key, value) {
 // ==============================
 // ADS
 // ==============================
-function vk_show_ads() {
+function js_vk_show_ads() {
     let req_id = VK_GMS.newRequest();
 
     window.vkBridge.send("VKWebAppShowNativeAds", {
@@ -136,12 +136,12 @@ function vk_show_rewarded_ads() {
 // ==============================
 // POLL FUNCTION (ВАЖНО)
 // ==============================
-function vk_poll_event() {
-    if (pendingCallbacks.length > 0) {
-        var evt = pendingCallbacks.shift();
+function js_vk_poll_event() {
+    // Используем ПРАВИЛЬНОЕ имя массива: VK_QUEUE
+    if (window.VK_QUEUE && window.VK_QUEUE.length > 0) {
+        var evt = window.VK_QUEUE.shift(); // Берем первое событие и удаляем его из очереди
         console.log("JS: Polling event...", evt);
-        // ОБЯЗАТЕЛЬНО возвращаем JSON-строку
-        return JSON.stringify(evt); 
+        return JSON.stringify(evt); // Возвращаем строку для GML
     }
     return "";
 }
