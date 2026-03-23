@@ -1,42 +1,32 @@
+// ==============================
+// GLOBAL QUEUE
+// ==============================
+window.VK_QUEUE = [];
+
+function vk_push_event(type, request_id, status, data = null) {
+    const evt = {
+        type: "VKBridge",
+        request_id: request_id,
+        status: status,
+        data: data
+    };
+
+    console.log("VK EVENT (queued):", evt);
+    window.VK_QUEUE.push(evt);
+}
+
+
+// ==============================
+// CORE
+// ==============================
 var VK_GMS = {
     _request_id: 0,
     _is_ready: false,
 
     newRequest: function () {
-        this._request_id += 1;
+        this._request_id++;
         return this._request_id;
-    },
-
-    send: function (req_id, status, data = null) {
-        var response = {
-            type: "VKBridge",
-            request_id: req_id,
-            status: status,
-            data: data
-        };
-
-        console.log("JS → GML:", response);
-
-        if (typeof window.gmcallback_vk_receiver === "function") {
-            window.gmcallback_vk_receiver(JSON.stringify(response));
-        } else {
-            console.error("JS: gmcallback_vk_receiver not found");
-        }
     }
-};
-
-// --- проброс в window ---
-window.gmcallback_vk_receiver = function (_json) {
-    var fn =
-        window["gml_Script_vk_bridge_callback"] ||
-        window["gml_vk_bridge_callback"];
-
-    if (!fn) {
-        console.error("JS: vk_bridge_callback not found!");
-        return;
-    }
-
-    fn(_json);
 };
 
 
@@ -44,25 +34,20 @@ window.gmcallback_vk_receiver = function (_json) {
 // INIT
 // ==============================
 function vk_init() {
-    var req_id = VK_GMS.newRequest();
+    let req_id = VK_GMS.newRequest();
 
     if (!window.vkBridge) {
-        console.error("JS: vkBridge not found");
-
-        setTimeout(() => {
-            VK_GMS.send(req_id, "error", "vkBridge not loaded");
-        }, 50);
-
+        vk_push_event("VKBridge", req_id, "error", "vkBridge not found");
         return req_id;
     }
 
     window.vkBridge.send("VKWebAppInit")
         .then(() => {
             VK_GMS._is_ready = true;
-            VK_GMS.send(req_id, "success");
+            vk_push_event("VKBridge", req_id, "success");
         })
         .catch(err => {
-            VK_GMS.send(req_id, "error", err);
+            vk_push_event("VKBridge", req_id, "error", err);
         });
 
     return req_id;
@@ -77,38 +62,44 @@ function vk_get_init_status() {
 // STORAGE
 // ==============================
 function vk_get_data(key) {
-    var req_id = VK_GMS.newRequest();
+    let req_id = VK_GMS.newRequest();
 
-    if (!VK_GMS._is_ready) return -1;
+    if (!VK_GMS._is_ready) {
+        vk_push_event("VKBridge", req_id, "error", "not ready");
+        return req_id;
+    }
 
     window.vkBridge.send("VKWebAppStorageGet", { keys: [key] })
         .then(res => {
             let value = null;
 
             if (res.keys && res.keys.length > 0) {
-                value = res.keys[0].value; // может быть string или null
+                value = res.keys[0].value;
             }
 
-            VK_GMS.send(req_id, "success", value);
+            vk_push_event("VKBridge", req_id, "success", value);
         })
         .catch(err => {
-            VK_GMS.send(req_id, "error", err);
+            vk_push_event("VKBridge", req_id, "error", err);
         });
 
     return req_id;
 }
 
 function vk_save_data(key, value) {
-    var req_id = VK_GMS.newRequest();
+    let req_id = VK_GMS.newRequest();
 
-    if (!VK_GMS._is_ready) return -1;
+    if (!VK_GMS._is_ready) {
+        vk_push_event("VKBridge", req_id, "error", "not ready");
+        return req_id;
+    }
 
     window.vkBridge.send("VKWebAppStorageSet", {
         key: key,
         value: String(value)
     })
-    .then(() => VK_GMS.send(req_id, "success"))
-    .catch(err => VK_GMS.send(req_id, "error", err));
+    .then(() => vk_push_event("VKBridge", req_id, "success"))
+    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
 
     return req_id;
 }
@@ -118,29 +109,35 @@ function vk_save_data(key, value) {
 // ADS
 // ==============================
 function vk_show_ads() {
-    var req_id = VK_GMS.newRequest();
-
-    if (!VK_GMS._is_ready) return -1;
+    let req_id = VK_GMS.newRequest();
 
     window.vkBridge.send("VKWebAppShowNativeAds", {
         ad_format: "interstitial"
     })
-    .then(res => VK_GMS.send(req_id, "success", res))
-    .catch(err => VK_GMS.send(req_id, "error", err));
+    .then(res => vk_push_event("VKBridge", req_id, "success", res))
+    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
 
     return req_id;
 }
 
 function vk_show_rewarded_ads() {
-    var req_id = VK_GMS.newRequest();
-
-    if (!VK_GMS._is_ready) return -1;
+    let req_id = VK_GMS.newRequest();
 
     window.vkBridge.send("VKWebAppShowNativeAds", {
         ad_format: "reward"
     })
-    .then(res => VK_GMS.send(req_id, "success", res))
-    .catch(err => VK_GMS.send(req_id, "error", err));
+    .then(res => vk_push_event("VKBridge", req_id, "success", res))
+    .catch(err => vk_push_event("VKBridge", req_id, "error", err));
 
     return req_id;
+}
+
+
+// ==============================
+// POLL FUNCTION (ВАЖНО)
+// ==============================
+
+function vk_poll_event() {
+    if (window.VK_QUEUE.length === 0) return null;
+    return window.VK_QUEUE.shift();
 }
