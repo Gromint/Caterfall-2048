@@ -19,23 +19,18 @@ var VK_GMS = {
             "status": String(status),
             "data": this.safeString(data)
         };
-        console.log("JS: Dispatching to GML...", response);
-        
-        // Передаем как строку, чтобы GML json_parse не подавился
+    
         var jsonStr = JSON.stringify(response);
+        console.log("JS: Sending to GML:", response);
+
+        // Прямой вызов GML-скрипта
         if (typeof window.gmcallback_vk_receiver === 'function') {
             window.gmcallback_vk_receiver(jsonStr);
+        } else {
+            console.warn("JS: GML receiver not ready!");
         }
     }
 };
-
-function tryFlushCallbacks() {
-    if (typeof window.gmcallback_vk_receiver !== 'function') return;
-    while (pendingCallbacks.length > 0) {
-        var json = pendingCallbacks.shift();
-        window.gmcallback_vk_receiver(json);
-    }
-}
 
 function vk_init() {
     var req_id = VK_GMS.newRequest();
@@ -104,4 +99,23 @@ function vk_show_rewarded_ads() {
         .catch(() => VK_GMS.send(req_id, "error"));
         
     return req_id;
+}
+
+function vk_send_test_to_gml() {
+    // Создаем простой объект
+    var data = {
+        message: "Hello from JS!",
+        value: 42
+    };
+
+    // Превращаем в строку JSON
+    var jsonString = JSON.stringify(data);
+
+    // Вызываем GML-скрипт напрямую
+    // Важно: в window должна быть функция с именем gmcallback_ + имя вашего скрипта
+    if (typeof window.gmcallback_vk_receiver === 'function') {
+        window.gmcallback_vk_receiver(jsonString);
+    } else {
+        console.error("GML Script 'gmcallback_vk_receiver' not found!");
+    }
 }
