@@ -1,88 +1,53 @@
-// Автоматическая загрузка VK SDK (аналог Яндекс.SDK)
-(function (d) {
-    console.log('VKBridge: Starting load script...');
-    let t = d.getElementsByTagName('script')[0];
-    let s = d.createElement('script');
-    s.src = 'https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
-    s.async = true;
-    t.parentNode.insertBefore(s, t);
-    // Когда сам файл библиотеки загрузился, вызываем внутренний инит
-    s.onload = function() {
-        console.log('VKBridge: SDK Script loaded from CDN');
-    };
-})(document);
+// Инициализация GMS_API (как в CrazyGames)
+const GMS_API = (function() {
+    if (typeof g_pBuiltInCallbacks !== 'undefined') return g_pBuiltInCallbacks;
+    return window.g_pBuiltInCallbacks || null;
+})();
 
-var VKBridgeGMS = {
-    _mapType: "VKBridge",
-    _request_id: 100,
-    _is_init: false,
-
-    // Поиск API GameMaker (как в Яндексе)
-    getAPI: function() {
-        if (typeof g_pBuiltInCallbacks !== 'undefined') return g_pBuiltInCallbacks;
-        if (window.g_pBuiltInCallbacks) return window.g_pBuiltInCallbacks;
-        return null;
-    },
-
-    // Отправка события (с проверкой наличия API)
-    send: function (req_id, event_name, data = null) {
-        let self = this;
-        // Используем setTimeout(..., 0) как в Яндексе для асинхронности
-        setTimeout(function() {
-            let api = self.getAPI();
-            let map = {
-                "type": self._mapType,
-                "request_id": Number(req_id),
-                "event": String(event_name),
-                "data": (typeof data === 'object' && data !== null) ? JSON.stringify(data) : String(data)
-            };
-
-            if (api && api.send_async_event_social) {
-                api.send_async_event_social(map);
-            } else {
-                console.warn("VKBridge: GMS API not ready, retrying send...");
-                setTimeout(() => self.send(req_id, event_name, data), 50);
+const VK_GMS_Internal = {
+    // Вызов GML скрипта с передачей данных
+    execute_callback: function(_callback_id, _data) {
+        if (GMS_API && GMS_API.get_function) {
+            const _cb = GMS_API.get_function(_callback_id);
+            if (_cb) {
+                // Если пришел объект, превращаем в JSON-строку для GML
+                let payload = (typeof _data === 'object' && _data !== null) ? JSON.stringify(_data) : String(_data);
+                return _cb(null, null, payload);
             }
-        }, 0);
+        }
+        console.error("VK_GMS: Callback Error - API not found or script ID invalid");
     }
 };
 
-// --- ВНЕШНИЕ ФУНКЦИИ (GMS External Names) ---
+// --- ВНЕШНИЕ ФУНКЦИИ (External Names в GMS) ---
 
-function js_vk_init() {
-    let req_id = ++VKBridgeGMS._request_id;
-    
-    // Проверяем, прогрузился ли скрипт в window
+function js_vk_init(cb_success, cb_error) {
     if (!window.vkBridge) {
-        console.error("VKBridge: window.vkBridge not found yet!");
-        return req_id; 
+        VK_GMS_Internal.execute_callback(cb_error, "no_sdk");
+        return;
     }
-
     window.vkBridge.send("VKWebAppInit")
-        .then(() => {
-            VKBridgeGMS._is_init = true;
-            VKBridgeGMS.send(req_id, "init_success");
-            console.log("VKBridge: VKWebAppInit Success");
-        })
-        .catch(err => VKBridgeGMS.send(req_id, "init_error", err));
-
-    return req_id;
+        .then(() => VK_GMS_Internal.execute_callback(cb_success, "ready"))
+        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
 }
 
-function js_vk_get_init_status() {
-    // Эта функция будет вызываться в Alarm[0], как YaGames_getInitStatus
-    return VKBridgeGMS._is_init ? 1 : 0;
-}
-
-function js_vk_get_data(key) {
-    let req_id = ++VKBridgeGMS._request_id;
+function js_vk_get_data(key, cb_success, cb_error) {
     window.vkBridge.send("VKWebAppStorageGet", { keys: [key] })
         .then(res => {
             let val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
-            VKBridgeGMS.send(req_id, "get_data_success", val);
+            VK_GMS_Internal.execute_callback(cb_success, val);
         })
-        .catch(err => VKBridgeGMS.send(req_id, "get_data_error", err));
-    return req_id;
+        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
 }
 
-// ... Аналогично добавь js_vk_save_data и рекламу
+function js_vk_save_data(key, value, cb_success, cb_error) {
+    window.vkBridge.send("VKWebAppStorageSet", { key: key, value: String(value) })
+        .then(() => VK_GMS_Internal.execute_callback(cb_success, "saved"))
+        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
+}
+
+function js_vk_show_ads(cb_success, cb_error) {
+    window.vkBridge.send("VKWebAppShowNativeAds", { ad_format: "interstitial" })
+        .then(res => VK_GMS_Internal.execute_callback(cb_success, res))
+        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
+}
