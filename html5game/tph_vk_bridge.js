@@ -1,53 +1,147 @@
-// Инициализация GMS_API (как в CrazyGames)
-const GMS_API = (function() {
-    if (typeof g_pBuiltInCallbacks !== 'undefined') return g_pBuiltInCallbacks;
-    return window.g_pBuiltInCallbacks || null;
-})();
+// Автоматическая инициализация скрипта VK Bridge
+(function (d) {
+    console.log('VK Bridge SDK start load');
+    let t = d.getElementsByTagName('script')[0];
+    let s = d.createElement('script');
+    s.src = 'https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
+    s.async = true;
+    t.parentNode.insertBefore(s, t);
+    s.onload = function() {
+        console.log('VK Bridge SDK script loaded');
+        // Автоматический запуск инициализации после загрузки скрипта
+        js_vk_init();
+    };
+})(document);
 
-const VK_GMS_Internal = {
-    // Вызов GML скрипта с передачей данных
-    execute_callback: function(_callback_id, _data) {
-        if (GMS_API && GMS_API.get_function) {
-            const _cb = GMS_API.get_function(_callback_id);
-            if (_cb) {
-                // Если пришел объект, превращаем в JSON-строку для GML
-                let payload = (typeof _data === 'object' && _data !== null) ? JSON.stringify(_data) : String(_data);
-                return _cb(null, null, payload);
+var VKBridgeGMS = {
+    _mapTypeDesc: "VKBridge", // Тип события для проверки в Async Social
+    _request_id: 100,
+    _is_init: false,
+
+    // Генерация уникального ID запроса
+    newRequest: function () {
+        return ++this._request_id;
+    },
+
+    // Отправка данных обратно в Game Maker
+    send: function (request_id, event, data = null) {
+        if (window.GMS_API && window.GMS_API.send_async_event_social) {
+            var map = {
+                "type": this._mapTypeDesc,
+                "request_id": request_id,
+                "event": event
+            };
+            if (data !== null) {
+                map["data"] = (typeof data === 'object') ? JSON.stringify(data) : data;
             }
+            window.GMS_API.send_async_event_social(map);
         }
-        console.error("VK_GMS: Callback Error - API not found or script ID invalid");
+    },
+
+    // Отправка ошибки
+    sendError: function (request_id, event, error) {
+        console.error("VK Bridge Error:", event, error);
+        this.send(request_id, event, { error: error.toString() });
     }
 };
 
-// --- ВНЕШНИЕ ФУНКЦИИ (External Names в GMS) ---
-
-function js_vk_init(cb_success, cb_error) {
-    if (!window.vkBridge) {
-        VK_GMS_Internal.execute_callback(cb_error, "no_sdk");
-        return;
-    }
-    window.vkBridge.send("VKWebAppInit")
-        .then(() => VK_GMS_Internal.execute_callback(cb_success, "ready"))
-        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
-}
-
-function js_vk_get_data(key, cb_success, cb_error) {
-    window.vkBridge.send("VKWebAppStorageGet", { keys: [key] })
-        .then(res => {
-            let val = (res.keys && res.keys[0]) ? res.keys[0].value : "";
-            VK_GMS_Internal.execute_callback(cb_success, val);
+/**
+ * Инициализация VK Bridge
+ */
+function js_vk_init() {
+    vkBridge.send('VKWebAppInit')
+        .then(data => {
+            VKBridgeGMS._is_init = true;
+            VKBridgeGMS.send(-1, "initSuccess");
         })
-        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
+        .catch(error => {
+            VKBridgeGMS.sendError(-1, "initError", error);
+        });
+    return 1;
 }
 
-function js_vk_save_data(key, value, cb_success, cb_error) {
-    window.vkBridge.send("VKWebAppStorageSet", { key: key, value: String(value) })
-        .then(() => VK_GMS_Internal.execute_callback(cb_success, "saved"))
-        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
+/**
+ * Проверка статуса инициализации
+ */
+function js_vk_get_init_s() {
+    return VKBridgeGMS._is_init ? 1 : 0;
 }
 
-function js_vk_show_ads(cb_success, cb_error) {
-    window.vkBridge.send("VKWebAppShowNativeAds", { ad_format: "interstitial" })
-        .then(res => VK_GMS_Internal.execute_callback(cb_success, res))
-        .catch(err => VK_GMS_Internal.execute_callback(cb_error, err));
+/**
+ * Показ обычной межстраничной рекламы (Interstitial)
+ */
+function js_vk_show_ads() {
+    let req_id = VKBridgeGMS.newRequest();
+    vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+        .then(data => {
+            if (data.result) {
+                VKBridgeGMS.send(req_id, "adClosed");
+            } else {
+                VKBridgeGMS.sendError(req_id, "adError", "Ad failed to show");
+            }
+        })
+        .catch(error => {
+            VKBridgeGMS.sendError(req_id, "adError", error);
+        });
+    return req_id;
+}
+
+/**
+ * Показ рекламы с вознаграждением (Rewarded)
+ */
+function js_vk_show_rewarded_ads() {
+    let req_id = VKBridgeGMS.newRequest();
+    vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' })
+        .then(data => {
+            if (data.result) {
+                VKBridgeGMS.send(req_id, "rewardedReceived");
+            } else {
+                VKBridgeGMS.sendError(req_id, "rewardedError", "Reward failed");
+            }
+        })
+        .catch(error => {
+            VKBridgeGMS.sendError(req_id, "rewardedError", error);
+        });
+    return req_id;
+}
+
+/**
+ * Сохранение данных (Cloud Storage)
+ */
+function js_vk_save_data(key, value) {
+    let req_id = VKBridgeGMS.newRequest();
+    vkBridge.send('VKWebAppStorageSet', {
+        key: String(key),
+        value: String(value)
+    })
+    .then(data => {
+        if (data.result) {
+            VKBridgeGMS.send(req_id, "saveSuccess", key);
+        }
+    })
+    .catch(error => {
+        VKBridgeGMS.sendError(req_id, "saveError", error);
+    });
+    return String(req_id);
+}
+
+/**
+ * Получение данных (Cloud Storage)
+ */
+function js_vk_get_data(key) {
+    let req_id = VKBridgeGMS.newRequest();
+    vkBridge.send('VKWebAppStorageGet', {
+        keys: [String(key)]
+    })
+    .then(data => {
+        if (data.keys && data.keys[0]) {
+            VKBridgeGMS.send(req_id, "getDataSuccess", data.keys[0].value);
+        } else {
+            VKBridgeGMS.send(req_id, "getDataEmpty", "");
+        }
+    })
+    .catch(error => {
+        VKBridgeGMS.sendError(req_id, "getDataError", error);
+    });
+    return String(req_id);
 }
