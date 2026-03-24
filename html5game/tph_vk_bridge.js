@@ -1,4 +1,4 @@
-// Асинхронная загрузка SDK VK Bridge (аналог начала YaGames.js)
+// Асинхронная загрузка SDK VK Bridge
 (function (d) {
 	console.log('VK SDK start load script');
 	let t = d.getElementsByTagName('script')[0];
@@ -6,7 +6,7 @@
 	s.src = 'https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js';
 	s.async = true;
 	t.parentNode.insertBefore(s, t);
-	s.onload = js_vk_init; // Вызов инициализации после загрузки
+	s.onload = js_vk_init; 
 })(document);
 
 var VKBridgeGMS = {
@@ -14,43 +14,39 @@ var VKBridgeGMS = {
 	_request_id: 100,
 	_is_init: false,
 
-	/**
-	 * Генерация ID запроса (как в YaGamesGMS.newRequest)
-	 */
 	newRequest: function () {
 		return ++this._request_id;
 	},
 
 	/**
-	 * Отправка события в Game Maker (аналог YaGamesGMS.send)
+	 * Исправленная отправка: гарантируем, что event и data — это всегда строки.
 	 */
 	send: function (request_id, event, data = null) {
 		if (window.GMS_API && window.GMS_API.send_async_event_social) {
 			var map = {
-				"type": this._mapTypeDesc,
+				"type": String(this._mapTypeDesc),
 				"request_id": String(request_id),
-				"event": event
+				"event": String(event) // Принудительно в строку, чтобы избежать undefined в GML
 			};
-			if (data !== null) {
-				// Если данные - объект, превращаем в строку (для совместимости с json_parse в GML)
+			
+			// Если данных нет, отправляем пустую строку, чтобы json_parse не падал
+			if (data === null || typeof data === 'undefined') {
+				map["data"] = "";
+			} else {
 				map["data"] = (typeof data === 'object') ? JSON.stringify(data) : String(data);
 			}
+			
 			window.GMS_API.send_async_event_social(map);
 		}
 	},
 
-	/**
-	 * Отправка ошибки (аналог YaGamesGMS.sendError)
-	 */
 	sendError: function (request_id, event, error) {
 		console.error("VK Bridge Error [" + event + "]:", error);
-		this.send(request_id, event, error ? error.toString() : "Unknown Error");
+		// Передаем текст ошибки как данные
+		this.send(request_id, event, error ? String(error) : "Unknown Error");
 	}
 };
 
-/**
- * Инициализация SDK
- */
 function js_vk_init() {
 	if (typeof vkBridge !== 'undefined') {
 		vkBridge.send('VKWebAppInit')
@@ -65,16 +61,10 @@ function js_vk_init() {
 	return 1;
 }
 
-/**
- * Получение статуса инициализации
- */
 function js_vk_get_init_s() {
 	return VKBridgeGMS._is_init ? 1 : 0;
 }
 
-/**
- * Полноэкранная реклама (Interstitial)
- */
 function js_vk_show_ads() {
 	let self = VKBridgeGMS;
 	let req_id = self.newRequest();
@@ -92,9 +82,6 @@ function js_vk_show_ads() {
 	return req_id;
 }
 
-/**
- * Реклама с вознаграждением (Rewarded)
- */
 function js_vk_show_rewarded_ads() {
 	let self = VKBridgeGMS;
 	let req_id = self.newRequest();
@@ -112,10 +99,6 @@ function js_vk_show_rewarded_ads() {
 	return req_id;
 }
 
-/**
- * Сохранение данных по ключу (Cloud Storage)
- * Например: vk_save_data("save_data", json_string)
- */
 function js_vk_save_data(key, value) {
 	let self = VKBridgeGMS;
 	let req_id = self.newRequest();
@@ -124,7 +107,6 @@ function js_vk_save_data(key, value) {
 		value: String(value)
 	})
 	.then(data => {
-		// ВК возвращает результат в data.result
 		self.send(req_id, "saveSuccess", key);
 	})
 	.catch(error => {
@@ -134,8 +116,7 @@ function js_vk_save_data(key, value) {
 }
 
 /**
- * Загрузка данных по ключу
- * Например: vk_get_data("save_data")
+ * Исправленная загрузка: четкое разделение Success и Empty.
  */
 function js_vk_get_data(key) {
 	let self = VKBridgeGMS;
@@ -144,11 +125,12 @@ function js_vk_get_data(key) {
 		keys: [String(key)]
 	})
 	.then(data => {
-		// ВК возвращает массив объектов {key, value}. Берем первый.
-		if (data.keys && data.keys[0] && data.keys[0].value !== "") {
+		// Проверяем, что массив ключей существует и значение не является пустой строкой/null
+		if (data.keys && data.keys[0] && data.keys[0].value !== "" && data.keys[0].value !== null) {
 			self.send(req_id, "getDataSuccess", data.keys[0].value);
 		} else {
-			// Если ключа нет или он пустой, возвращаем пустую строку
+			// Если данных нет, отправляем getDataEmpty с пустой строкой
+			// В твоем GML это попадет в switch, но save_data не изменится
 			self.send(req_id, "getDataEmpty", "");
 		}
 	})
