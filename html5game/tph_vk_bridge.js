@@ -61,7 +61,11 @@ function js_vk_init() {
 	return 1;
 }
 
-function js_vk_get_init_s() {
+/**
+ * Получение статуса инициализации
+ * Исправлено название на js_vk_get_init_status
+ */
+function js_vk_get_init_status() {
 	return VKBridgeGMS._is_init ? 1 : 0;
 }
 
