@@ -70,20 +70,17 @@ function js_vk_get_init_status() {
 }
 
 function js_vk_show_ads() {
-	let self = VKBridgeGMS;
-	let req_id = self.newRequest();
-	vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
-		.then(data => {
-			if (data.result) {
-				self.send(req_id, "adClosed");
-			} else {
-				self.sendError(req_id, "adError", "failed");
-			}
-		})
-		.catch(error => {
-			self.sendError(req_id, "adError", error);
-		});
-	return req_id;
+    let self = VKBridgeGMS;
+    let req_id = self.newRequest();
+    vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'interstitial' })
+        .then(data => {
+            // ВК вернул результат. Даже если рекламу пропустили, это успех закрытия.
+            self.send(req_id, "adClosed", data);
+        })
+        .catch(error => {
+            self.sendError(req_id, "adError", error);
+        });
+    return String(req_id); // Возвращаем String, так как в Extension стоит String
 }
 
 function js_vk_show_rewarded_ads() {
