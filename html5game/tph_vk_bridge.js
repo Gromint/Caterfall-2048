@@ -140,3 +140,25 @@ function js_vk_get_data(key) {
 	});
 	return String(req_id);
 }
+
+function js_vk_show_leaderboard(score) {
+    let self = VKBridgeGMS;
+    let req_id = self.newRequest();
+    
+    // Метод ShowLeaderBoardBox сам берет число и ставит игрока на нужное место
+    vkBridge.send('VKWebAppShowLeaderBoardBox', { 
+        user_result: Number(score) 
+    })
+    .then(data => {
+        self.send(req_id, "leaderboardClosed");
+    })
+    .catch(error => {
+        self.sendError(req_id, "leaderboardError", error);
+    });
+    
+    return String(req_id);
+}
+
+function js_vk_add_to_favorites() {
+    vkBridge.send('VKWebAppAddToFavorites');
+}
