@@ -159,6 +159,20 @@ function js_vk_show_leaderboard(score) {
     return String(req_id);
 }
 
-function js_vk_add_to_favorites() {
-    vkBridge.send('VKWebAppAddToFavorites');
+function js_vk_check_and_add_favorite() {
+    vkBridge.send('VKWebAppGetConfig')
+        .then(data => {
+            // Если игры еще нет в избранном (левом меню)
+            if (!data.is_favorite) {
+                vkBridge.send('VKWebAppAddToFavorites')
+                    .then(res => { console.log("VK: Favorite window shown"); })
+                    .catch(err => { console.error("VK: Favorite prompt failed", err); });
+            } else {
+                console.log("VK: Game is already in favorites, skipping prompt.");
+            }
+        })
+        .catch(error => {
+            console.error("VK: Config check failed", error);
+        });
+    return 1;
 }
