@@ -145,17 +145,20 @@ function js_vk_show_leaderboard(score) {
     let self = VKBridgeGMS;
     let req_id = self.newRequest();
     
-    // Метод ShowLeaderBoardBox сам берет число и ставит игрока на нужное место
+    // Преобразуем в число на случай, если из GML пришла строка
+    let finalScore = parseInt(score); 
+
     vkBridge.send('VKWebAppShowLeaderBoardBox', { 
-        user_result: Number(score) 
+        user_result: finalScore 
     })
     .then(data => {
-        self.send(req_id, "leaderboardClosed");
+        self.send(req_id, "leaderboardClosed", data);
     })
     .catch(error => {
+        // Выведи ошибку в консоль целиком, чтобы увидеть код ошибки
+        console.error("Full VK Error:", error);
         self.sendError(req_id, "leaderboardError", error);
     });
-    
     return String(req_id);
 }
 
