@@ -33,3 +33,5 @@ ad_no,Может позже,Maybe later
 combo,КОМБО x,COMBO x
 pool_add,Добавлено: ,Added: 
 pool_remove,Удалено: ,Removed: 
+ad_timer,Реклама через: ,Advertising through: 
+ad_off,Отключить,Turn off
